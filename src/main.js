@@ -6,6 +6,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 let controls, camera, scene, renderer
 let textureRooftop, textureBureaux
 let sphereMesh, sphereMaterial, params
+let backgroundMesh
 
 init()
 
@@ -31,18 +32,20 @@ function init() {
   textureBureaux = textureLoader.load(
     "textures/IKIGAI_VUE_07_BUREAUXAVENUE_V1_opti.jpg"
   )
-  textureBureaux.mapping = THREE.EquirectangularReflectionMapping
   textureBureaux.colorSpace = THREE.SRGBColorSpace
 
   textureRooftop = textureLoader.load(
     "textures/IKIGAI_VUE_10_ROOFTOP_360_V1_opti.jpg"
   )
-  textureRooftop.mapping = THREE.EquirectangularReflectionMapping
   textureRooftop.colorSpace = THREE.SRGBColorSpace
 
-  scene.background = textureBureaux
-
-  //
+  // Workaround for Safari crash: Use inverted sphere instead of scene.background
+  const geometry = new THREE.SphereGeometry(50, 60, 40)
+  geometry.scale(-1, 1, 1) // Invert geometry to view from inside
+  const material = new THREE.MeshBasicMaterial({ map: textureBureaux })
+  material.side = THREE.DoubleSide
+  backgroundMesh = new THREE.Mesh(geometry, material)
+  scene.add(backgroundMesh)
 
   renderer = new THREE.WebGLRenderer()
   renderer.setPixelRatio(window.devicePixelRatio)
@@ -61,10 +64,14 @@ function init() {
 
   params = {
     Bureaux: function () {
-      scene.background = textureBureaux
+      console.log("Bureaux", scene)
+      backgroundMesh.material.map = textureBureaux
+      backgroundMesh.material.needsUpdate = true
     },
     Rooftop: function () {
-      scene.background = textureRooftop
+      console.log("Rooftop", scene)
+      backgroundMesh.material.map = textureRooftop
+      backgroundMesh.material.needsUpdate = true
     },
     Refraction: false,
     backgroundRotationX: false,
@@ -92,19 +99,19 @@ function onWindowResize() {
 
 function animate() {
   if (params.backgroundRotationX) {
-    scene.backgroundRotation.x += 0.001
+    backgroundMesh.rotation.x += 0.001
   }
 
   if (params.backgroundRotationY) {
-    scene.backgroundRotation.y += 0.001
+    backgroundMesh.rotation.y += 0.001
   }
 
   if (params.backgroundRotationZ) {
-    scene.backgroundRotation.z += 0.001
+    backgroundMesh.rotation.z += 0.001
   }
 
-  if (params.syncMaterial) {
-    sphereMesh.material.envMapRotation.copy(scene.backgroundRotation)
+  if (params.syncMaterial && sphereMesh) {
+    sphereMesh.material.envMapRotation.copy(backgroundMesh.rotation)
   }
 
   camera.lookAt(scene.position)
